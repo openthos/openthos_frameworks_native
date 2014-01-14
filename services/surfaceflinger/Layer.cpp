@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 The Android Open Source Project
+ * Copyright (C) 2014 Tieto Poland Sp. z o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,7 +107,19 @@ Layer::Layer(SurfaceFlinger* flinger, const sp<Client>& client,
     mCurrentState.layerStack = 0;
     mCurrentState.flags = layerFlags;
     mCurrentState.sequence = 0;
+    /**
+     * Date: Mar 6, 2014
+     * Copyright (C) 2014 Tieto Poland Sp. z o.o.
+     */
+    mCurrentState.requestedTransform = mCurrentState.transform;
     mCurrentState.transform.set(0, 0);
+    /**
+     * Date: Mar 5, 2014
+     * Copyright (C) 2014 Tieto Poland Sp. z o.o.
+     *
+     * initialize to the same value as transform
+     */
+    mCurrentState.requestedTransform = mCurrentState.transform;
     mCurrentState.requested = mCurrentState.active;
 
     // drawing state & current state are identical
@@ -931,6 +944,13 @@ uint32_t Layer::doTransaction(uint32_t flags) {
     } else {
         Layer::State& editCurrentState(getCurrentState());
         editCurrentState.active = c.requested;
+        /**
+         * Date: Mar 6, 2014
+         * Copyright (C) 2014 Tieto Poland Sp. z o.o.
+         *
+         * No geometry changed than commit
+         */
+        editCurrentState.transform = c.requestedTransform;
     }
 
     if (s.active != c.active) {
@@ -967,10 +987,17 @@ uint32_t Layer::setTransactionFlags(uint32_t flags) {
 }
 
 bool Layer::setPosition(float x, float y) {
-    if (mCurrentState.transform.tx() == x && mCurrentState.transform.ty() == y)
+    /**
+     * Date: Mar 6, 2014
+     * Copyright (C) 2014 Tieto Poland Sp. z o.o.
+     *
+     * Delay setPosition for resizing window from left border.
+     */
+    if (mCurrentState.requestedTransform.tx() == x &&
+            mCurrentState.requestedTransform.ty() == y)
         return false;
     mCurrentState.sequence++;
-    mCurrentState.transform.set(x, y);
+    mCurrentState.requestedTransform.set(x, y);
     setTransactionFlags(eTransactionNeeded);
     return true;
 }
@@ -1000,7 +1027,11 @@ bool Layer::setAlpha(uint8_t alpha) {
 }
 bool Layer::setMatrix(const layer_state_t::matrix22_t& matrix) {
     mCurrentState.sequence++;
-    mCurrentState.transform.set(
+    /**
+     * Date: Mar 6, 2014
+     * Copyright (C) 2014 Tieto Poland Sp. z o.o.
+     */
+    mCurrentState.requestedTransform.set(
             matrix.dsdx, matrix.dsdy, matrix.dtdx, matrix.dtdy);
     setTransactionFlags(eTransactionNeeded);
     return true;
@@ -1148,7 +1179,15 @@ Region Layer::latchBuffer(bool& recomputeVisibleRegions)
                 }
 
                 bool isFixedSize = item.mScalingMode != NATIVE_WINDOW_SCALING_MODE_FREEZE;
-                if (front.active != front.requested) {
+                /**
+                 * Date: Mar 6, 2014
+                 * Copyright (C) 2014 Tieto Poland Sp. z o.o.
+                 *
+                 * If there was a movement than update current state
+                 */
+                if ((front.active != front.requested)
+                        || (front.transform.tx() != front.requestedTransform.tx())
+                        || (front.transform.ty() != front.requestedTransform.ty())) {
 
                     if (isFixedSize ||
                             (bufWidth == front.requested.w &&
@@ -1166,6 +1205,14 @@ Region Layer::latchBuffer(bool& recomputeVisibleRegions)
                         // NOTE: We don't need to hold the transaction lock here
                         // because State::active is only accessed from this thread.
                         current.active = front.active;
+                        /**
+                         * Date: Mar 6, 2014
+                         * Copyright (C) 2014 Tieto Poland Sp. z o.o.
+                         *
+                         * Update surface position
+                         */
+                        front.transform = front.requestedTransform;
+                        current.transform = front.requestedTransform;
 
                         // recompute visible region
                         recomputeVisibleRegions = true;
