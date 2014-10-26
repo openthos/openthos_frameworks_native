@@ -43,11 +43,13 @@ LOCAL_SRC_FILES := \
 LOCAL_MODULE := libsurfaceflinger
 LOCAL_C_INCLUDES := \
     frameworks/native/vulkan/include \
+    external/drm_gralloc \
     external/vulkan-validation-layers/libs/vkjson \
     system/libhwbinder/fast_msgq/include \
 
 LOCAL_CFLAGS := -DLOG_TAG=\"SurfaceFlinger\"
 LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES
+LOCAL_CFLAGS += -DCONSOLE_MANAGER -DANDROID_VT=7
 
 ifeq ($(TARGET_USES_HWC2),true)
     LOCAL_CFLAGS += -DUSE_HWC2
