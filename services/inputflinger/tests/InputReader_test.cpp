@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 The Android Open Source Project
+ * Copyright (C) 2014 Tieto Poland Sp. z o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -118,6 +119,16 @@ private:
     }
 
     virtual void clearSpots() {
+    }
+
+    /**
+     * Date: Mar 25, 2014
+     * Copyright (C) 2014 Tieto Poland Sp. z o.o.
+     *
+     * Fake method. Only to instantiate class.
+     */
+    virtual int32_t getDisplayId() {
+        return 0;
     }
 };
 

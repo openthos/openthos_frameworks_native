@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 The Android Open Source Project
+ * Copyright (C) 2014 Tieto Poland Sp. z o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -2501,7 +2502,14 @@ void CursorInputMapper::sync(nsecs_t when) {
         mPointerController->getPosition(&x, &y);
         pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_X, x);
         pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_Y, y);
-        displayId = ADISPLAY_ID_DEFAULT;
+        /**
+         * Date: Mar 21, 2014
+         * Copyright (C) 2014 Tieto Poland Sp. z o.o.
+         *
+         * To support mouse on external display, it is needed to get information
+         * where controller is displayed.
+         */
+        displayId = mPointerController->getDisplayId();
     } else {
         pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_X, deltaX);
         pointerCoords.setAxisValue(AMOTION_EVENT_AXIS_Y, deltaY);

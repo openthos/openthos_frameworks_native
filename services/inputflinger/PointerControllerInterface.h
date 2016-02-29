@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2014 The Android Open Source Project
+ * Copyright (C) 2014 Tieto Poland Sp. z o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -98,6 +99,14 @@ public:
 
     /* Removes all spots. */
     virtual void clearSpots() = 0;
+
+    /**
+     * Date: Mar 21, 2014
+     * Copyright (C) 2014 Tieto Poland Sp. z o.o.
+     *
+     * Returns where PointerController is displayed.
+     */
+    virtual int32_t getDisplayId() = 0;
 };
 
 } // namespace android

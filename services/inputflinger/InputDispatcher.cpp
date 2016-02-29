@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010 The Android Open Source Project
+ * Copyright (C) 2014 Tieto Poland Sp. z o.o.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -855,10 +856,14 @@ bool InputDispatcher::dispatchMotionLocked(
         return true;
     }
 
-    // TODO: support sending secondary display events to input monitors
-    if (isMainDisplay(entry->displayId)) {
-        addMonitoringTargetsLocked(inputTargets);
-    }
+    /**
+     * Date: Apr 3, 2014
+     * Copyright (C) 2014 Tieto Poland Sp. z o.o.
+     *
+     * Use the same input monitor (Window Manager) for two displays. Naive
+     * approach, but I hope that it works good
+     */
+    addMonitoringTargetsLocked(inputTargets, entry->displayId);
 
     // Dispatch the motion.
     if (conflictingPointerActions) {
@@ -1562,8 +1567,17 @@ void InputDispatcher::addWindowTargetLocked(const sp<InputWindowHandle>& windowH
     target.pointerIds = pointerIds;
 }
 
-void InputDispatcher::addMonitoringTargetsLocked(Vector<InputTarget>& inputTargets) {
+/**
+ * Date: Apr 3, 2014
+ * Copyright (C) 2014 Tieto Poland Sp. z o.o.
+ *
+ * Add support for multidisplay. Each display has its own monitor.
+ */
+void InputDispatcher::addMonitoringTargetsLocked(Vector<InputTarget>& inputTargets, int displayId) {
     for (size_t i = 0; i < mMonitoringChannels.size(); i++) {
+        if (mMonitoringChannels[i]->getDisplayId() != displayId) {
+            continue;
+        }
         inputTargets.push();
 
         InputTarget& target = inputTargets.editTop();
