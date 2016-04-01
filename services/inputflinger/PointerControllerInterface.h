@@ -59,6 +59,8 @@ public:
     /* Gets the absolute location of the pointer. */
     virtual void getPosition(float* outX, float* outY) const = 0;
 
+    /* Sets Type of PointerIcon*/
+    virtual void pointerIconChange(int type) = 0;
     enum Transition {
         // Fade/unfade immediately.
         TRANSITION_IMMEDIATE,

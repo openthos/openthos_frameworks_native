@@ -87,6 +87,8 @@ public:
         *outY = mY;
     }
 
+    virtual void pointerIconChange(int type){}
+
 private:
     virtual bool getBounds(float* outMinX, float* outMinY, float* outMaxX, float* outMaxY) const {
         *outMinX = mMinX;
