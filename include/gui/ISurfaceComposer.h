@@ -185,6 +185,7 @@ public:
         GET_ANIMATION_FRAME_STATS,
         SET_POWER_MODE,
         GET_DISPLAY_STATS,
+        SET_RESOLUTION,
     };
 
     virtual status_t onTransact(uint32_t code, const Parcel& data,

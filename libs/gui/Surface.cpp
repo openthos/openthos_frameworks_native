@@ -370,9 +370,11 @@ int Surface::query(int what, int* value) const {
             case NATIVE_WINDOW_CONCRETE_TYPE:
                 *value = NATIVE_WINDOW_SURFACE;
                 return NO_ERROR;
+            case NATIVE_WINDOW_WIDTH:
             case NATIVE_WINDOW_DEFAULT_WIDTH:
                 *value = mUserWidth ? mUserWidth : mDefaultWidth;
                 return NO_ERROR;
+            case NATIVE_WINDOW_HEIGHT:
             case NATIVE_WINDOW_DEFAULT_HEIGHT:
                 *value = mUserHeight ? mUserHeight : mDefaultHeight;
                 return NO_ERROR;

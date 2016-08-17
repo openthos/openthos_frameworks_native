@@ -258,6 +258,8 @@ public:
         nsecs_t refresh;
     };
 
+    void setResolution();
+
     // Query display parameters.  Pass in a display index (e.g.
     // HWC_DISPLAY_PRIMARY).
     nsecs_t getRefreshTimestamp(int disp) const;

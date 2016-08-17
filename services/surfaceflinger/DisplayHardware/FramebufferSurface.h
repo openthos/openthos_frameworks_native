@@ -51,7 +51,7 @@ public:
 
     // Cannot resize a buffers in a FramebufferSurface. Only works with virtual
     // displays.
-    virtual void resizeBuffers(const uint32_t /*w*/, const uint32_t /*h*/) { };
+    virtual void resizeBuffers(const uint32_t /*w*/, const uint32_t /*h*/);
 
 private:
     virtual ~FramebufferSurface() { }; // this class cannot be overloaded

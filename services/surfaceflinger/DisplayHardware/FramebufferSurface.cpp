@@ -138,6 +138,10 @@ void FramebufferSurface::onFrameAvailable(const BufferItem& /* item */) {
     }
 }
 
+void FramebufferSurface::resizeBuffers(const uint32_t, const uint32_t){
+    mHwc.setResolution();
+}
+
 void FramebufferSurface::freeBufferLocked(int slotIndex) {
     ConsumerBase::freeBufferLocked(slotIndex);
     if (slotIndex == mCurrentBufferSlot) {
