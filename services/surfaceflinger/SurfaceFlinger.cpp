@@ -2806,7 +2806,7 @@ status_t SurfaceFlinger::onTransact(
                     /* parse <xres>x<yres>[@<refreshrate>] */
                     if (sscanf(value, "%dx%d@%d", &xres, &yres, &rate) != 3) {
                             ALOGE("persist.sys.display.size should be "
-                                  "<xres>x<yres>[@<refreshrate>],now error");
+                                  + <xres>x<yres>[@<refreshrate>],now error");
                             return 0;
                     }
             }
