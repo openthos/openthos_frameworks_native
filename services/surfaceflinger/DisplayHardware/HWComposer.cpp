@@ -208,22 +208,6 @@ HWComposer::~HWComposer() {
     delete mCBContext;
 }
 
-void HWComposer::setResolution(){
-        mFbDev->setResolution();
-        loadFbHalModule();
-        DisplayData& disp(mDisplayData[HWC_DISPLAY_PRIMARY]);
-        disp.connected = true;
-        disp.format = mFbDev->format;
-        DisplayConfig config = DisplayConfig();
-        config.width = mFbDev->width;
-        config.height = mFbDev->height;
-        config.xdpi = mFbDev->xdpi;
-        config.ydpi = mFbDev->ydpi;
-        config.refresh = nsecs_t(1e9 / mFbDev->fps);
-        disp.configs.push_back(config);
-        disp.currentConfig = disp.configs.size() - 1;
-}
-
 // Load and prepare the hardware composer module.  Sets mHwc.
 void HWComposer::loadHwcModule()
 {

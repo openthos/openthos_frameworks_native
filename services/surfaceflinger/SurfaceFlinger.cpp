@@ -2798,22 +2798,6 @@ status_t SurfaceFlinger::onTransact(
             }
             break;
         }
-        case SET_RESOLUTION:
-        {
-            char value[32];
-            int xres,yres,rate;
-            if (property_get("persist.sys.display.size", value, NULL)){
-                    /* parse <xres>x<yres>[@<refreshrate>] */
-                    if (sscanf(value, "%dx%d@%d", &xres, &yres, &rate) != 3) {
-                            ALOGE("persist.sys.display.size should be "
-                                  + <xres>x<yres>[@<refreshrate>],now error");
-                            return 0;
-                    }
-            }
-            getDisplayDevice(mBuiltinDisplays[DisplayDevice::DISPLAY_PRIMARY])->setDisplaySize(xres,
-                                                                                              yres);
-            break;
-        }
     }
 
     status_t err = BnSurfaceComposer::onTransact(code, data, reply, flags);

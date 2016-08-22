@@ -418,10 +418,6 @@ private:
             uint32_t minLayerZ, uint32_t maxLayerZ);
 
     void logFrameStats();
-    /*-------------------------------------------------------------------------
-     * Resize resolution
-     */
-    void reset_resolution();
 
     /* ------------------------------------------------------------------------
      * Attributes

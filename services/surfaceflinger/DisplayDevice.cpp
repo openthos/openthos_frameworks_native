@@ -671,18 +671,10 @@ void DisplayDevice::setDisplaySize(const int newWidth, const int newHeight) {
     mDisplaySurface->resizeBuffers(newWidth, newHeight);
 
     ANativeWindow* const window = mNativeWindow.get();
-    native_window_api_disconnect(window, NATIVE_WINDOW_API_EGL);
-    native_window_set_buffers_dimensions(window, newWidth, newHeight);
-    native_window_set_buffers_user_dimensions(window, newWidth, newHeight);
     mSurface = eglCreateWindowSurface(mDisplay, mConfig, window, NULL);
     eglQuerySurface(mDisplay, mSurface, EGL_WIDTH,  &mDisplayWidth);
     eglQuerySurface(mDisplay, mSurface, EGL_HEIGHT, &mDisplayHeight);
 
-    mViewport.makeInvalid();
-    mFrame.makeInvalid();
-    setProjection(DisplayState::eOrientationDefault, mViewport, mFrame);
-
-    ALOGI("%s setDisplaySize result:%d,%d", __func__, mDisplayWidth, mDisplayHeight);
     LOG_FATAL_IF(mDisplayWidth != newWidth,
                 "Unable to set new width to %d", newWidth);
     LOG_FATAL_IF(mDisplayHeight != newHeight,
