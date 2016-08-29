@@ -682,9 +682,9 @@ status_t SurfaceFlinger::getDisplayConfigs(const sp<IBinder>& display,
         static int getBuildDensity(const DisplayInfo& info)  {
             static int density = getDensityFromProperty("ro.sf.lcd_density");
 #if defined(__i386__) || defined(__x86_64__)
-/*            if (density == 0) {
+            if (density == 0) {
                 uint32_t area = info.w * info.h;
-
+/*
                 if (calcuScreenDPI(info.w, info.h)) {
                     if (mScreenDPI <= 120) {
                         density = 120;
