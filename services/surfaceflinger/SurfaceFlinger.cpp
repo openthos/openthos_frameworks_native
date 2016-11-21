@@ -544,138 +544,6 @@ status_t SurfaceFlinger::getDisplayConfigs(const sp<IBinder>& display,
             return density;
         }
     public:
-#if defined(__i386__) || defined(__x86_64__)
-        // Calculate DPI  by means of physical size and resolution of Display Screen.
-        static bool calcuScreenDPI(
-                int resolutionWidth,
-                int resolutionHeight) {
-
-            mIsCanCalcuDPI = getScreenSize();
-            if (!mIsCanCalcuDPI) {
-                return false;
-            }
-
-            double value;
-            value = sqrt(pow(resolutionWidth,2) + pow(resolutionHeight, 2));
-
-            mScreenDPI = (int)((value / mScreenSizeInch) + 0.5);
-
-            return true;
-        }
-
-        static bool getScreenSize() {
-            if (!getScreenPhysicalInfo()) {
-                return false;
-            }
-
-            if ((mScreenPhysicalWidth <= 1) || (mScreenPhysicalHeight <= 1)) {
-                return false;
-            }
-
-            mScreenPhysicalSize = sqrt(pow(mScreenPhysicalWidth,2) + pow(mScreenPhysicalHeight, 2));
-            mScreenSizeInch = mScreenPhysicalSize / mCalcuRatio;
-
-            if (fabs(mScreenSizeInch) < 1) {
-                return false;
-            }
-
-            return true;
-        }
-
-        static void substr(char *src,int start,int length,char *dest) {
-            int i = start, j = 0, srcLen = strlen(src);
-
-            while (j < length) {
-                if (i >= (srcLen - 1)) {
-                    break;
-                }
-
-                dest[j] = *(src + i);
-                i++;
-                j++;
-            }
-
-            dest[j] = '\0';
-        }
-
-        static bool getScreenPhysicalInfo() {
-            FILE*  fp;
-            char filePath[] = "/sys/kernel/debug/dri/0/i915_display_info";
-            char szCommand[] = "cat /sys/kernel/debug/dri/0/i915_display_info |"
-                               "grep dimensions:|awk \'{print $3;}\'";
-
-            char buffer[1024];
-            int  CHAR_LENGTH = 3;
-
-            if (0 != access(filePath, F_OK)) {
-                ALOGE("File is not exist!\n");
-                return false;
-            }
-
-            fp = popen(szCommand,"r");
-            if (fp == NULL) {
-                ALOGE("Execute Command failed!\n");
-                return false;
-            }
-
-            memset(buffer,0,sizeof(buffer));
-            fgets(buffer,sizeof(buffer),fp);
-
-            ALOGD("Buffer is %s",buffer);
-            pclose(fp);
-
-            int buffSize = strlen(buffer) - 1;
-
-            ALOGE("Buffer Length is %d .\n", buffSize);
-
-            if (buffSize <= CHAR_LENGTH) {
-                ALOGE("Data Error ! buffer size <= CHAR_LENGTH."
-                      "Buffer Size is %d.\n",buffSize);
-                return false;
-            }
-
-            if ((buffer[buffSize - 1] != 'm') || ((buffer[buffSize -2] != 'm'))) {
-                ALOGE("Data End Character is wrong.\n");
-                return false;
-            }
-
-            bool isExist = false;
-
-            int pos = 0;
-            for (int i = 0; i < buffSize; i++)  {
-                if ('x' == buffer[i]) {
-                    pos = i;
-                    isExist =true;
-                    break;
-                }
-            }
-
-            if (!isExist) {
-                ALOGE("Data is not exist!\n");
-                return false;
-            }
-
-            int start,size;
-            char value[50];
-
-            start = 0;
-            size = pos;
-            memset(value,0,sizeof(value));
-            substr(buffer,start,size,value);
-            mScreenPhysicalWidth = atoi(value);
-
-            start = pos + 1;
-            size =  buffSize - size - CHAR_LENGTH;
-            memset(value,0,sizeof(value));
-            substr(buffer,start,size,value);
-            mScreenPhysicalHeight = atoi(value);
-
-            ALOGD("Origin Values is %d ,Screen Width is %d ,"
-                  "Height is %d  ,value %s.\n",size,
-                  mScreenPhysicalWidth,mScreenPhysicalHeight,value);
-            return true;
-        }
-#endif
         static int getEmuDensity() {
             return getDensityFromProperty("qemu.sf.lcd_density"); }
 
@@ -685,29 +553,13 @@ status_t SurfaceFlinger::getDisplayConfigs(const sp<IBinder>& display,
             if (density == 0) {
                 uint32_t area = info.w * info.h;
 
-                if (calcuScreenDPI(info.w, info.h)) {
-                    if (mScreenDPI <= 120) {
-                        density = 120;
-                    } else if (mScreenDPI >= 640) {
-                        density = 640;
-                    } else {
-                        if ((120 < mScreenDPI) && (mScreenDPI <= 160)) {
-                            if (abs(mScreenDPI - 120) >= abs(160 - mScreenDPI)) {
-                                density = 160;
-                            } else {
-                                density = 120;
-                            }
-                        } else {
-                            density = mScreenDPI;
-                        }
-                    }
-                } else if (area <= 800 * 480) {
+                if (area <= 800 * 480) {
                     density = 120;
                 } else if (area <= 1024 * 600) {
                     density = 130;
                 } else if (area < 1024 * 768) {
                     density = 140;
-                } else if (area < 1920 * 1080) {
+                } else if (area <= 1920 * 1080) {
                     density = 160;
                 } else {
                     density = 240;
