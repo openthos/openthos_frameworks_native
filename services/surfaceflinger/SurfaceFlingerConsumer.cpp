@@ -177,6 +177,7 @@ void SurfaceFlingerConsumer::onSidebandStreamChanged() {
     sp<ContentsChangedListener> listener;
     {   // scope for the lock
         Mutex::Autolock lock(mMutex);
+        Mutex::Autolock lockListener(mMutexListener);
         ALOG_ASSERT(mFrameAvailableListener.unsafe_get() == mContentsChangedListener.unsafe_get());
         listener = mContentsChangedListener.promote();
     }

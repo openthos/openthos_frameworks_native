@@ -233,6 +233,7 @@ protected:
     //
     // This mutex is intended to be locked by derived classes.
     mutable Mutex mMutex;
+    mutable Mutex mMutexListener;
 };
 
 // ----------------------------------------------------------------------------
