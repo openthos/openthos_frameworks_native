@@ -2525,16 +2525,22 @@ void InputDispatcher::notifyMotion(const NotifyMotionArgs* args) {
             mLock.lock();
         }
 
-        MotionEntry* newEntry;
+        MotionEntry* newEntry = NULL;
         if (mCtrlPressed && (args->action == AMOTION_EVENT_ACTION_SCROLL)) {
-            if (!mVirtualZoom.isZooming()) {
+            if (mVirtualZoom.isZooming()) {
+                newEntry = mVirtualZoom.zoom(args->eventTime,
+                         args->pointerCoords[0].getAxisValue(AMOTION_EVENT_AXIS_VSCROLL));
+            }
+            if (!newEntry) {
+                if (mVirtualZoom.isZooming()) {
+                    newEntry = mVirtualZoom.zoomEnd(args->eventTime);
+                    needWake |= enqueueInboundEventLocked(newEntry);
+                    newEntry = mVirtualZoom.zoomEndUp(args->eventTime);
+                }
                 newEntry = mVirtualZoom.zoomBeginDown(args->eventTime, args->displayId,
                          args->pointerCoords[0].getAxisValue(AMOTION_EVENT_AXIS_VSCROLL));
                 needWake |= enqueueInboundEventLocked(newEntry);
                 newEntry = mVirtualZoom.zoomBegin(args->eventTime);
-            } else {
-                newEntry = mVirtualZoom.zoom(args->eventTime,
-                         args->pointerCoords[0].getAxisValue(AMOTION_EVENT_AXIS_VSCROLL));
             }
         } else {
             // Just enqueue a new motion event.
@@ -4577,7 +4583,6 @@ InputDispatcher::VirtualZoom::VirtualZoom() {
     mDownTime = 0;
     mY0 = VIRTUALZOOM_Y_POS_0_INIT;
     mY1 = VIRTUALZOOM_Y_POS_1_INIT;
-    mPos = 0.0f;
 
     mZoomPointerProp[0].id = 0;
     mZoomPointerProp[1].id = 1;
@@ -4626,11 +4631,9 @@ InputDispatcher::MotionEntry* InputDispatcher::VirtualZoom::zoomBeginDown(nsecs_
                                                                       int32_t displayId,
                                                                       float pos) {
     mDownTime = time;
+    mLastTime = time;
     mDisplayId = displayId;
-    mPos = pos;
-    mZoomCount = 0;
     mZooming = true;
-    mPosLarger = false;
     return new MotionEntry(time, 0, AINPUT_SOURCE_MOUSE,
                 POLICY_FLAG_TRUSTED | POLICY_FLAG_PASS_TO_USER,
                 AMOTION_EVENT_ACTION_DOWN, 0, 0, 0,
@@ -4655,37 +4658,17 @@ InputDispatcher::MotionEntry* InputDispatcher::VirtualZoom::zoomBegin(nsecs_t ti
 
 InputDispatcher::MotionEntry* InputDispatcher::VirtualZoom::zoom(nsecs_t time,
                                                                  float pos) {
-#if 0
-    static const float VIRTUALZOOM_Y_STEPS[] = {30.0f, 24.0f, 19.0f, 15.0f, 12.0f,
-                                                10.0f,  9.0f,  8.0f,  7.0f,  6.0f,
-                                                 5.0f,  4.0f,  3.0f,  2.0f,  1.0f};
-#endif
-    static const float VIRTUALZOOM_Y_STEPS[] = {10.0f, 14.0f, 20.0f, 27.0f, 35.0f,
-                                                27.0f, 20.0f, 14.0f, 10.0f,  7.0f,
-                                                 5.0f,  4.0f,  3.0f,  2.0f,  1.0f};
-
-    if (mZoomCount < sizeof(VIRTUALZOOM_Y_STEPS) / sizeof(VIRTUALZOOM_Y_STEPS[0])) {
-        if (mPos > pos) {
-            mY0 += VIRTUALZOOM_Y_STEPS[mZoomCount];
-            mY1 -= VIRTUALZOOM_Y_STEPS[mZoomCount];
-            if (!mPosLarger) {
-                mZoomCount = 0;
-                mPosLarger = true;
-            } else {
-                mZoomCount++;
-            }
-        } else if (mPos < pos) {
-            mY0 -= VIRTUALZOOM_Y_STEPS[mZoomCount];
-            mY1 += VIRTUALZOOM_Y_STEPS[mZoomCount];
-            if (mPosLarger) {
-                mZoomCount = 0;
-                mPosLarger = false;
-            } else {
-                mZoomCount++;
-            }
-        }
+    if (time - mLastTime > VIRTUALZOOM_TIMEOUT) {
+        return NULL;
     }
-    mPos = pos;
+    if (pos > 0.0f) {
+        mY0 += VIRTUALZOOM_ZOOM_OUT_STEP;
+        mY1 -= VIRTUALZOOM_ZOOM_OUT_STEP;
+    } else if (pos < 0.0f) {
+        mY0 -= VIRTUALZOOM_ZOOM_IN_STEP;
+        mY1 += VIRTUALZOOM_ZOOM_IN_STEP;
+    }
+    mLastTime = time;
     mZoomPointerCoords[0].setAxisValue(AMOTION_EVENT_AXIS_Y, mY0);
     mZoomPointerCoords[1].setAxisValue(AMOTION_EVENT_AXIS_Y, mY1);
     return new MotionEntry(time, 0, AINPUT_SOURCE_MOUSE,
