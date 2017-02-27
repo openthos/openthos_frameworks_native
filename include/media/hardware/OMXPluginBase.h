@@ -35,7 +35,8 @@ struct OMXPluginBase {
             const char *name,
             const OMX_CALLBACKTYPE *callbacks,
             OMX_PTR appData,
-            OMX_COMPONENTTYPE **component) = 0;
+            OMX_COMPONENTTYPE **component,
+            pid_t caller) = 0;
 
     virtual OMX_ERRORTYPE destroyComponentInstance(
             OMX_COMPONENTTYPE *component) = 0;
