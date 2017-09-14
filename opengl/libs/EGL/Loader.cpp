@@ -179,7 +179,13 @@ void* Loader::open(egl_connection_t* cnx)
     void* dso;
     driver_t* hnd = 0;
 
-    dso = load_driver("GLES", cnx, EGL | GLESv1_CM | GLESv2);
+    // Check if hardware gralloc is set explicitly
+    char prop[PROPERTY_VALUE_MAX];
+    if (property_get("ro.hardware.gralloc", prop, NULL) && strcmp(prop, "default")) {
+        dso = load_driver("GLES", cnx, EGL | GLESv1_CM | GLESv2);
+    } else {
+        dso = NULL;
+    }
     if (dso) {
         hnd = new driver_t(dso);
     } else {
