@@ -229,17 +229,18 @@ void MotionEvent::initialize(
         size_t pointerCount,
         const PointerProperties* pointerProperties,
         const PointerCoords* pointerCoords) {
-    InputEvent::initialize(deviceId, 4098);
+    if (action == AMOTION_EVENT_ACTION_DOWN
+            || action == AMOTION_EVENT_ACTION_UP
+            || action == AMOTION_EVENT_ACTION_MOVE) {
+        InputEvent::initialize(deviceId, AINPUT_SOURCE_TOUCHSCREEN);
+    } else {
+        InputEvent::initialize(deviceId, source);
+    }
     mAction = action;
     mFlags = flags;
     mEdgeFlags = edgeFlags;
     mMetaState = metaState;
     mButtonState = buttonState;
-    //if (buttonState == 1) {
-    //    mButtonState = 0;
-    //} else {
-    //    mButtonState = buttonState;
-    //}
     mXOffset = xOffset;
     mYOffset = yOffset;
     mXPrecision = xPrecision;
