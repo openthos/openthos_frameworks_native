@@ -229,9 +229,9 @@ void MotionEvent::initialize(
         size_t pointerCount,
         const PointerProperties* pointerProperties,
         const PointerCoords* pointerCoords) {
-    if (action == AMOTION_EVENT_ACTION_DOWN
-            || action == AMOTION_EVENT_ACTION_UP
-            || action == AMOTION_EVENT_ACTION_MOVE) {
+    if ((action == AMOTION_EVENT_ACTION_DOWN || action == AMOTION_EVENT_ACTION_UP
+            || action == AMOTION_EVENT_ACTION_MOVE)
+            && (source == AINPUT_SOURCE_MOUSE || source == AINPUT_SOURCE_TOUCHPAD)) {
         InputEvent::initialize(deviceId, AINPUT_SOURCE_TOUCHSCREEN);
     } else {
         InputEvent::initialize(deviceId, source);
