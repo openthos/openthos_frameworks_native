@@ -394,6 +394,7 @@ private:
     };
 
     status_t openDeviceLocked(const char *devicePath);
+    status_t openDeviceLocked(const char *devicePath, bool ignoreAlreadyOpened);
     void createVirtualKeyboardLocked();
     void addDeviceLocked(Device* device);
     void assignDescriptorLocked(InputDeviceIdentifier& identifier);
