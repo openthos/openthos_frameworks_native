@@ -548,7 +548,7 @@ status_t SurfaceFlinger::getDisplayConfigs(const sp<IBinder>& display,
             return getDensityFromProperty("qemu.sf.lcd_density"); }
 
         static int getBuildDensity(const DisplayInfo& info)  {
-            static int density = getDensityFromProperty("ro.sf.lcd_density");
+            static int density = getDensityFromProperty("persist.sf.lcd_density");
 #if defined(__i386__) || defined(__x86_64__)
             if (density == 0) {
                 uint32_t area = info.w * info.h;
@@ -590,7 +590,7 @@ status_t SurfaceFlinger::getDisplayConfigs(const sp<IBinder>& display,
             if (density == 0) {
                 // the build doesn't provide a density -- this is wrong!
                 // use xdpi instead
-                ALOGE("ro.sf.lcd_density must be defined as a build property");
+                ALOGE("persist.sf.lcd_density must be defined as a build property");
                 density = xdpi / 160.0f;
             }
             if (Density::getEmuDensity()) {
