@@ -1345,7 +1345,7 @@ void CursorButtonAccumulator::reset(InputDevice* device) {
     mBtnLeft = device->isKeyPressed(BTN_LEFT);
     mBtnRight = device->isKeyPressed(BTN_RIGHT);
     mBtnMiddle = device->isKeyPressed(BTN_MIDDLE);
-    mBtnBack = device->isKeyPressed(BTN_BACK);
+    mBtnBack = device->isKeyPressed(BTN_RIGHT);
     mBtnSide = device->isKeyPressed(BTN_SIDE);
     mBtnForward = device->isKeyPressed(BTN_FORWARD);
     mBtnExtra = device->isKeyPressed(BTN_EXTRA);
@@ -1369,12 +1369,10 @@ void CursorButtonAccumulator::process(const RawEvent* rawEvent) {
         case BTN_LEFT:
             mBtnLeft = rawEvent->value;
             break;
-        case BTN_RIGHT:
-            mBtnRight = rawEvent->value;
-            break;
         case BTN_MIDDLE:
             mBtnMiddle = rawEvent->value;
             break;
+        case BTN_RIGHT:
         case BTN_BACK:
             mBtnBack = rawEvent->value;
             break;
