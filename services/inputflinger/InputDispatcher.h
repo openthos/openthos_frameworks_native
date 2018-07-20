@@ -1132,20 +1132,21 @@ private:
         static const float VIRTUALZOOM_X_POS = 1181.0f;
         static const float VIRTUALZOOM_Y_POS_0_INIT = 600.0f;
         static const float VIRTUALZOOM_Y_POS_1_INIT = 400.0f;
-        static const float VIRTUALZOOM_ZOOM_OUT_STEP = 10.0f;
-        static const float VIRTUALZOOM_ZOOM_IN_STEP = 5.0f;
-        static const nsecs_t VIRTUALZOOM_TIMEOUT = 200 * 1000 * 1000; // 0.2 second
+        static const float VIRTUALZOOM_Y_POS_MAX = 1000.0f;
+        static const float VIRTUALZOOM_Y_POS_MIN = 0.0f;
 
         PointerProperties mZoomPointerProp[2]; // 2 fingers
         PointerProperties mDownUpPointerProp;
         PointerCoords mZoomPointerCoords[2];   // 2 fingers
         PointerCoords mDownUpPointerCoords;
         nsecs_t mDownTime;
-        nsecs_t mLastTime;
         float mY0;
         float mY1;
+        float mPos;
         int32_t mDisplayId;
+        unsigned int mZoomCount;
         bool mZooming;
+        bool mPosLarger;
     public:
         VirtualZoom();
         ~VirtualZoom();
