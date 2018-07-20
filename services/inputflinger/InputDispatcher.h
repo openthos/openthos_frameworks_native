@@ -1126,40 +1126,6 @@ private:
     void traceInboundQueueLengthLocked();
     void traceOutboundQueueLengthLocked(const sp<Connection>& connection);
     void traceWaitQueueLengthLocked(const sp<Connection>& connection);
-
-    class VirtualZoom {
-    private:
-        static const float VIRTUALZOOM_X_POS = 1181.0f;
-        static const float VIRTUALZOOM_Y_POS_0_INIT = 600.0f;
-        static const float VIRTUALZOOM_Y_POS_1_INIT = 400.0f;
-        static const float VIRTUALZOOM_Y_POS_MAX = 1000.0f;
-        static const float VIRTUALZOOM_Y_POS_MIN = 0.0f;
-
-        PointerProperties mZoomPointerProp[2]; // 2 fingers
-        PointerProperties mDownUpPointerProp;
-        PointerCoords mZoomPointerCoords[2];   // 2 fingers
-        PointerCoords mDownUpPointerCoords;
-        nsecs_t mDownTime;
-        float mY0;
-        float mY1;
-        float mPos;
-        int32_t mDisplayId;
-        unsigned int mZoomCount;
-        bool mZooming;
-        bool mPosLarger;
-    public:
-        VirtualZoom();
-        ~VirtualZoom();
-        MotionEntry* zoomBeginDown(nsecs_t time, int32_t displayId, float pos);
-        MotionEntry* zoomBegin(nsecs_t time);
-        MotionEntry* zoom(nsecs_t time, float pos);
-        MotionEntry* zoomEnd(nsecs_t time);
-        MotionEntry* zoomEndUp(nsecs_t time);
-        bool isZooming();
-    };
-
-    bool mCtrlPressed;
-    InputDispatcher::VirtualZoom mVirtualZoom;
 };
 
 /* Enqueues and dispatches input events, endlessly. */

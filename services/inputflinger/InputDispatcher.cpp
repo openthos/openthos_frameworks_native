@@ -202,7 +202,7 @@ InputDispatcher::InputDispatcher(const sp<InputDispatcherPolicyInterface>& polic
     mPendingEvent(NULL), mAppSwitchSawKeyDown(false), mAppSwitchDueTime(LONG_LONG_MAX),
     mNextUnblockedEvent(NULL),
     mDispatchEnabled(false), mDispatchFrozen(false), mInputFilterEnabled(false),
-    mInputTargetWaitCause(INPUT_TARGET_WAIT_CAUSE_NONE), mCtrlPressed(false) {
+    mInputTargetWaitCause(INPUT_TARGET_WAIT_CAUSE_NONE) {
     mLooper = new Looper(false);
 
     mKeyRepeatState.lastKeyEntry = NULL;
@@ -2409,7 +2409,7 @@ void InputDispatcher::notifyKey(const NotifyKeyArgs* args) {
 
     mPolicy->interceptKeyBeforeQueueing(&event, /*byref*/ policyFlags);
 
-    bool needWake = false;
+    bool needWake;
     { // acquire lock
         mLock.lock();
 
@@ -2424,39 +2424,13 @@ void InputDispatcher::notifyKey(const NotifyKeyArgs* args) {
             mLock.lock();
         }
 
-        EventEntry* newEntry = NULL;
+        int32_t repeatCount = 0;
+        KeyEntry* newEntry = new KeyEntry(args->eventTime,
+                args->deviceId, args->source, policyFlags,
+                args->action, flags, keyCode, args->scanCode,
+                metaState, repeatCount, args->downTime);
 
-        switch (keyCode) {
-        case AKEYCODE_CTRL_LEFT:
-        case AKEYCODE_CTRL_RIGHT:
-            switch (args->action) {
-            case AKEY_EVENT_ACTION_DOWN:
-                mCtrlPressed = true;
-                break;
-            case AKEY_EVENT_ACTION_UP:
-                if (mCtrlPressed && mVirtualZoom.isZooming()) {
-                    newEntry = mVirtualZoom.zoomEnd(args->eventTime);
-                    needWake |= enqueueInboundEventLocked(newEntry);
-                    newEntry = mVirtualZoom.zoomEndUp(args->eventTime);
-                }
-                mCtrlPressed = false;
-                break;
-            default:
-                break;
-            }
-            break;
-        default:
-            break;
-        }
-
-        if (!newEntry) {
-            int32_t repeatCount = 0;
-            newEntry = new KeyEntry(args->eventTime,
-                    args->deviceId, args->source, policyFlags,
-                    args->action, flags, keyCode, args->scanCode,
-                    metaState, repeatCount, args->downTime);
-        }
-        needWake |= enqueueInboundEventLocked(newEntry);
+        needWake = enqueueInboundEventLocked(newEntry);
         mLock.unlock();
     } // release lock
 
@@ -2503,7 +2477,7 @@ void InputDispatcher::notifyMotion(const NotifyMotionArgs* args) {
     policyFlags |= POLICY_FLAG_TRUSTED;
     mPolicy->interceptMotionBeforeQueueing(args->eventTime, /*byref*/ policyFlags);
 
-    bool needWake = false;
+    bool needWake;
     { // acquire lock
         mLock.lock();
 
@@ -2525,27 +2499,15 @@ void InputDispatcher::notifyMotion(const NotifyMotionArgs* args) {
             mLock.lock();
         }
 
-        MotionEntry* newEntry;
-        if (mCtrlPressed && (args->action == AMOTION_EVENT_ACTION_SCROLL)) {
-            if (!mVirtualZoom.isZooming()) {
-                newEntry = mVirtualZoom.zoomBeginDown(args->eventTime, args->displayId,
-                         args->pointerCoords[0].getAxisValue(AMOTION_EVENT_AXIS_VSCROLL));
-                needWake |= enqueueInboundEventLocked(newEntry);
-                newEntry = mVirtualZoom.zoomBegin(args->eventTime);
-            } else {
-                newEntry = mVirtualZoom.zoom(args->eventTime,
-                         args->pointerCoords[0].getAxisValue(AMOTION_EVENT_AXIS_VSCROLL));
-            }
-        } else {
-            // Just enqueue a new motion event.
-            newEntry = new MotionEntry(args->eventTime,
+        // Just enqueue a new motion event.
+        MotionEntry* newEntry = new MotionEntry(args->eventTime,
                 args->deviceId, args->source, policyFlags,
                 args->action, args->flags, args->metaState, args->buttonState,
                 args->edgeFlags, args->xPrecision, args->yPrecision, args->downTime,
                 args->displayId,
                 args->pointerCount, args->pointerProperties, args->pointerCoords, 0, 0);
-        }
-        needWake |= enqueueInboundEventLocked(newEntry);
+
+        needWake = enqueueInboundEventLocked(newEntry);
         mLock.unlock();
     } // release lock
 
@@ -4569,155 +4531,6 @@ InputDispatcherThread::~InputDispatcherThread() {
 bool InputDispatcherThread::threadLoop() {
     mDispatcher->dispatchOnce();
     return true;
-}
-
-InputDispatcher::VirtualZoom::VirtualZoom() {
-
-    mZooming = false;
-    mDownTime = 0;
-    mY0 = VIRTUALZOOM_Y_POS_0_INIT;
-    mY1 = VIRTUALZOOM_Y_POS_1_INIT;
-    mPos = 0.0f;
-
-    mZoomPointerProp[0].id = 0;
-    mZoomPointerProp[1].id = 1;
-    mZoomPointerProp[0].toolType = AMOTION_EVENT_TOOL_TYPE_FINGER;
-    mZoomPointerProp[1].toolType = AMOTION_EVENT_TOOL_TYPE_FINGER;
-    mDownUpPointerProp.id = 0;
-    mDownUpPointerProp.toolType = AMOTION_EVENT_TOOL_TYPE_FINGER;
-
-    memset(mZoomPointerCoords, 0, sizeof(mZoomPointerCoords));
-    mZoomPointerCoords[0].setAxisValue(AMOTION_EVENT_AXIS_X, VIRTUALZOOM_X_POS);
-    mZoomPointerCoords[0].setAxisValue(AMOTION_EVENT_AXIS_Y, mY0);
-    mZoomPointerCoords[0].setAxisValue(AMOTION_EVENT_AXIS_PRESSURE, 1.0f),
-    mZoomPointerCoords[0].setAxisValue(AMOTION_EVENT_AXIS_SIZE, 0.0f),
-    mZoomPointerCoords[0].setAxisValue(AMOTION_EVENT_AXIS_TOUCH_MAJOR, 0.0f),
-    mZoomPointerCoords[0].setAxisValue(AMOTION_EVENT_AXIS_TOUCH_MINOR, 0.0f),
-    mZoomPointerCoords[0].setAxisValue(AMOTION_EVENT_AXIS_TOOL_MAJOR, 0.0f),
-    mZoomPointerCoords[0].setAxisValue(AMOTION_EVENT_AXIS_TOOL_MINOR, 0.0f),
-    mZoomPointerCoords[0].setAxisValue(AMOTION_EVENT_AXIS_ORIENTATION, 0.0f);
-
-    mZoomPointerCoords[1].setAxisValue(AMOTION_EVENT_AXIS_X, VIRTUALZOOM_X_POS);
-    mZoomPointerCoords[1].setAxisValue(AMOTION_EVENT_AXIS_Y, mY1);
-    mZoomPointerCoords[1].setAxisValue(AMOTION_EVENT_AXIS_PRESSURE, 1.0f),
-    mZoomPointerCoords[1].setAxisValue(AMOTION_EVENT_AXIS_SIZE, 0.0f),
-    mZoomPointerCoords[1].setAxisValue(AMOTION_EVENT_AXIS_TOUCH_MAJOR, 0.0f),
-    mZoomPointerCoords[1].setAxisValue(AMOTION_EVENT_AXIS_TOUCH_MINOR, 0.0f),
-    mZoomPointerCoords[1].setAxisValue(AMOTION_EVENT_AXIS_TOOL_MAJOR, 0.0f),
-    mZoomPointerCoords[1].setAxisValue(AMOTION_EVENT_AXIS_TOOL_MINOR, 0.0f),
-    mZoomPointerCoords[1].setAxisValue(AMOTION_EVENT_AXIS_ORIENTATION, 0.0f);
-
-    memset(&mDownUpPointerCoords, 0, sizeof(mDownUpPointerCoords));
-    mDownUpPointerCoords.setAxisValue(AMOTION_EVENT_AXIS_X, VIRTUALZOOM_X_POS);
-    mDownUpPointerCoords.setAxisValue(AMOTION_EVENT_AXIS_Y, mY0);
-    mDownUpPointerCoords.setAxisValue(AMOTION_EVENT_AXIS_PRESSURE, 1.0f),
-    mDownUpPointerCoords.setAxisValue(AMOTION_EVENT_AXIS_SIZE, 0.0f),
-    mDownUpPointerCoords.setAxisValue(AMOTION_EVENT_AXIS_TOUCH_MAJOR, 0.0f),
-    mDownUpPointerCoords.setAxisValue(AMOTION_EVENT_AXIS_TOUCH_MINOR, 0.0f),
-    mDownUpPointerCoords.setAxisValue(AMOTION_EVENT_AXIS_TOOL_MAJOR, 0.0f),
-    mDownUpPointerCoords.setAxisValue(AMOTION_EVENT_AXIS_TOOL_MINOR, 0.0f),
-    mDownUpPointerCoords.setAxisValue(AMOTION_EVENT_AXIS_ORIENTATION, 0.0f);
-}
-
-InputDispatcher::VirtualZoom::~VirtualZoom() {
-}
-
-InputDispatcher::MotionEntry* InputDispatcher::VirtualZoom::zoomBeginDown(nsecs_t time,
-                                                                      int32_t displayId,
-                                                                      float pos) {
-    mDownTime = time;
-    mDisplayId = displayId;
-    mPos = pos;
-    mZoomCount = 0;
-    mZooming = true;
-    mPosLarger = false;
-    return new MotionEntry(time, 0, AINPUT_SOURCE_MOUSE,
-                POLICY_FLAG_TRUSTED | POLICY_FLAG_PASS_TO_USER,
-                AMOTION_EVENT_ACTION_DOWN, 0, 0, 0,
-                0, 0.0f, 0.0f, mDownTime, mDisplayId,
-                1, // 1 fingers
-                &mDownUpPointerProp, &mDownUpPointerCoords, 0, 0);
-}
-
-InputDispatcher::MotionEntry* InputDispatcher::VirtualZoom::zoomBegin(nsecs_t time) {
-    mY0 = VIRTUALZOOM_Y_POS_0_INIT;
-    mY1 = VIRTUALZOOM_Y_POS_1_INIT;
-    mZoomPointerCoords[0].setAxisValue(AMOTION_EVENT_AXIS_Y, mY0);
-    mZoomPointerCoords[1].setAxisValue(AMOTION_EVENT_AXIS_Y, mY1);
-    return new MotionEntry(time, 0, AINPUT_SOURCE_MOUSE,
-                POLICY_FLAG_TRUSTED | POLICY_FLAG_PASS_TO_USER,
-                AMOTION_EVENT_ACTION_POINTER_DOWN | (1 << AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT),
-                0, 0, 0,
-                0, 0.0f, 0.0f, mDownTime, mDisplayId,
-                2, // 2 fingers
-                mZoomPointerProp, mZoomPointerCoords, 0, 0);
-}
-
-InputDispatcher::MotionEntry* InputDispatcher::VirtualZoom::zoom(nsecs_t time,
-                                                                 float pos) {
-#if 0
-    static const float VIRTUALZOOM_Y_STEPS[] = {30.0f, 24.0f, 19.0f, 15.0f, 12.0f,
-                                                10.0f,  9.0f,  8.0f,  7.0f,  6.0f,
-                                                 5.0f,  4.0f,  3.0f,  2.0f,  1.0f};
-#endif
-    static const float VIRTUALZOOM_Y_STEPS[] = {10.0f, 14.0f, 20.0f, 27.0f, 35.0f,
-                                                27.0f, 20.0f, 14.0f, 10.0f,  7.0f,
-                                                 5.0f,  4.0f,  3.0f,  2.0f,  1.0f};
-
-    if (mZoomCount < sizeof(VIRTUALZOOM_Y_STEPS) / sizeof(VIRTUALZOOM_Y_STEPS[0])) {
-        if (mPos > pos) {
-            mY0 += VIRTUALZOOM_Y_STEPS[mZoomCount];
-            mY1 -= VIRTUALZOOM_Y_STEPS[mZoomCount];
-            if (!mPosLarger) {
-                mZoomCount = 0;
-                mPosLarger = true;
-            } else {
-                mZoomCount++;
-            }
-        } else if (mPos < pos) {
-            mY0 -= VIRTUALZOOM_Y_STEPS[mZoomCount];
-            mY1 += VIRTUALZOOM_Y_STEPS[mZoomCount];
-            if (mPosLarger) {
-                mZoomCount = 0;
-                mPosLarger = false;
-            } else {
-                mZoomCount++;
-            }
-        }
-    }
-    mPos = pos;
-    mZoomPointerCoords[0].setAxisValue(AMOTION_EVENT_AXIS_Y, mY0);
-    mZoomPointerCoords[1].setAxisValue(AMOTION_EVENT_AXIS_Y, mY1);
-    return new MotionEntry(time, 0, AINPUT_SOURCE_MOUSE,
-                POLICY_FLAG_TRUSTED | POLICY_FLAG_PASS_TO_USER,
-                AMOTION_EVENT_ACTION_MOVE, 0, 0, 0,
-                0, 0.0f, 0.0f, mDownTime, mDisplayId,
-                2, // 2 fingers
-                mZoomPointerProp, mZoomPointerCoords, 0, 0);
-}
-
-InputDispatcher::MotionEntry* InputDispatcher::VirtualZoom::zoomEnd(nsecs_t time) {
-    return new MotionEntry(time, 0, AINPUT_SOURCE_MOUSE,
-                POLICY_FLAG_TRUSTED | POLICY_FLAG_PASS_TO_USER,
-                AMOTION_EVENT_ACTION_POINTER_UP | (1 << AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT),
-                0, 0, 0,
-                0, 0.0f, 0.0f, mDownTime, mDisplayId,
-                2, // 2 fingers
-                mZoomPointerProp, mZoomPointerCoords, 0, 0);
-}
-
-InputDispatcher::MotionEntry* InputDispatcher::VirtualZoom::zoomEndUp(nsecs_t time) {
-    mZooming = false;
-    return new MotionEntry(time, 0, AINPUT_SOURCE_MOUSE,
-                POLICY_FLAG_TRUSTED | POLICY_FLAG_PASS_TO_USER,
-                AMOTION_EVENT_ACTION_UP, 0, 0, 0,
-                0, 0.0f, 0.0f, mDownTime, mDisplayId,
-                1, // 1 fingers
-                &mDownUpPointerProp, &mDownUpPointerCoords, 0, 0);
-}
-
-bool InputDispatcher::VirtualZoom::isZooming() {
-    return mZooming;
 }
 
 } // namespace android
