@@ -87,9 +87,11 @@ sp<Fence> Fence::merge(const String8& name, const sp<Fence>& f1,
     }
     if (result == -1) {
         status_t err = -errno;
+	/* Too many logs
         ALOGE("merge: sync_merge(\"%s\", %d, %d) returned an error: %s (%d)",
                 name.string(), f1->mFenceFd, f2->mFenceFd,
                 strerror(-err), err);
+	*/
         return NO_FENCE;
     }
     return sp<Fence>(new Fence(result));
@@ -106,7 +108,9 @@ nsecs_t Fence::getSignalTime() const {
 
     struct sync_fence_info_data* finfo = sync_fence_info(mFenceFd);
     if (finfo == NULL) {
+	/* Too many logs
         ALOGE("sync_fence_info returned NULL for fd %d", mFenceFd);
+	*/
         return -1;
     }
     if (finfo->status != 1) {
