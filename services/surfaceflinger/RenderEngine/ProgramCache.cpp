@@ -131,7 +131,11 @@ ProgramCache::Key ProgramCache::computeKey(const Description& description) {
     .set(Key::COLOR_MATRIX_MASK,
             description.mColorMatrixEnabled ? Key::COLOR_MATRIX_ON :  Key::COLOR_MATRIX_OFF)
     .set(Key::WIDE_GAMUT_MASK,
-            description.mIsWideGamut ? Key::WIDE_GAMUT_ON : Key::WIDE_GAMUT_OFF);
+            description.mIsWideGamut ? Key::WIDE_GAMUT_ON : Key::WIDE_GAMUT_OFF)
+    .set(Key::BLUR_MASK,
+            description.mBlur ? Key::BLUR_ON : Key::BLUR_OFF)
+    .set(Key::FIRSTAPP_MASK,
+            description.mFirstApp ? Key::FIRSTAPP_TRUE : Key::FIRSTAPP_FALSE);
     return needs;
 }
 
@@ -221,11 +225,49 @@ String8 ProgramCache::generateFragmentShader(const Key& needs) {
             )__SHADER__";
         }
     }
+    fs << "uniform int rWidth;";
+    fs << "uniform int rHeight;";
+    if (needs.isBlur()) {
+        fs << "uniform float iterator;"
+           << "uniform float saturation;"
+           << "uniform float sx;"
+           << "uniform float bx;"
+           << "uniform float sy;"
+           << "uniform float by;";
+    }
     fs << "void main(void) {" << indent;
     if (needs.isTexturing()) {
         fs << "gl_FragColor = texture2D(sampler, outTexCoords);";
     } else {
         fs << "gl_FragColor = color;";
+    }
+    if (needs.isBlur()) {
+        fs << "vec2 resolution = vec2(1.0f / float(rWidth), 1.0f / float(rHeight));"
+           << "vec2 pixelSize = resolution * 4.0f;"
+           << "vec2 halfPixelSize = pixelSize / 2.0f;"
+           << "vec2 dUV = (pixelSize.xy * vec2(iterator, iterator)) + halfPixelSize.xy;"
+           << "vec3 cOut, cOut0, cOut1, cOut2, cOut3, cOut4;"
+           << "float x1, y1, x2, y2;"
+           << "float set = 0.45f;"
+           << "x1 = outTexCoords.x - dUV.x;"
+           << "x2 = outTexCoords.x + dUV.x;"
+           << "y1 = outTexCoords.y - dUV.y;"
+           << "y2 = outTexCoords.y + dUV.y;"
+           << "if(x1 < sx) x1 = outTexCoords.x;"
+           << "if(x2 > bx) x2 = outTexCoords.x;"
+           << "if(y1 < sy) y1 = outTexCoords.y;"
+           << "if(y2 > by) y2 = outTexCoords.y;"
+           << "cOut = texture2D(sampler, outTexCoords).xyz;"
+           << "cOut1 = texture2D(sampler, vec2(x1, y1)).xyz;"
+           << "cOut2 = texture2D(sampler, vec2(x1, y2)).xyz;"
+           << "cOut3 = texture2D(sampler, vec2(x2, y1)).xyz;"
+           << "cOut4 = texture2D(sampler, vec2(x2, y2)).xyz;"
+           << "cOut  = cOut + cOut1 + cOut2 + cOut3 + cOut4;"
+           << "cOut *= 0.2f;"
+           << "const vec3 W = vec3(0.2125, 0.7154, 0.0721);"
+           << "vec3 intensity = vec3(dot(cOut.rgb, W));"
+           << "cOut.rgb = mix(intensity, cOut.rgb, saturation);"
+           << "gl_FragColor = vec4(cOut.xyz, 1.0f);";
     }
     if (needs.isOpaque()) {
         fs << "gl_FragColor.a = 1.0;";
@@ -270,6 +312,21 @@ Program* ProgramCache::generateProgram(const Key& needs) {
     return program;
 }
 
+void ProgramCache::changeUniform(const Description& description) {
+    Key needs(computeKey(description));
+    Program* program = mCache.valueFor(needs);
+    if (program == NULL || !needs.isBlur()) {
+        return;
+    }
+    if (description.blurnum % 2 == 0) {
+        glUniform1i(program->getUniform("blurnum1"), description.blurnum);
+        glUniform1i(program->getUniform("blurnum2"), 0);
+    } else {
+        glUniform1i(program->getUniform("blurnum2"), description.blurnum);
+        glUniform1i(program->getUniform("blurnum1"), 0);
+    }
+}
+
 void ProgramCache::useProgram(const Description& description) {
 
     // generate the key for the shader based on the description
@@ -292,6 +349,36 @@ void ProgramCache::useProgram(const Description& description) {
     if (program->isValid()) {
         program->use();
         program->setUniforms(description);
+        glUniform1i(program->getUniform("rHeight"), description.hwHeight);
+        glUniform1i(program->getUniform("rWidth"), description.hwWidth);
+        if (needs.isBlur()) {
+            glUniform1f(program->getUniform("sx"), description.sx);
+            glUniform1f(program->getUniform("bx"), description.bx);
+            glUniform1f(program->getUniform("sy"), description.sy);
+            glUniform1f(program->getUniform("by"), description.by);
+            if (description.blurnum == 1) {
+                glUniform1f(program->getUniform("iterator"), 0);
+                glUniform1f(program->getUniform("saturation"), 1.0);
+            } else if (description.blurnum == 2) {
+                glUniform1f(program->getUniform("iterator"), 1);
+                glUniform1f(program->getUniform("saturation"), 1.0);
+            } else if (description.blurnum == 3) {
+                glUniform1f(program->getUniform("iterator"), 2);
+                glUniform1f(program->getUniform("saturation"), 1.0);
+            } else if (description.blurnum == 4) {
+                glUniform1f(program->getUniform("iterator"), 3);
+                glUniform1f(program->getUniform("saturation"), 1.0);
+            } else if (description.blurnum == 5) {
+                glUniform1f(program->getUniform("iterator"), 4);
+                glUniform1f(program->getUniform("saturation"), 1.0);
+            } else if (description.blurnum == 6) {
+                glUniform1f(program->getUniform("iterator"), 4);
+                glUniform1f(program->getUniform("saturation"), 1.0);
+            } else if (description.blurnum == 7) {
+                glUniform1f(program->getUniform("iterator"), 5);
+                glUniform1f(program->getUniform("saturation"), 2.0);
+            }
+        }
     }
 }
 

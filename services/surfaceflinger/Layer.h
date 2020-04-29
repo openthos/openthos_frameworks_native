@@ -81,6 +81,11 @@ public:
     Region visibleNonTransparentRegion;
     Region surfaceDamageRegion;
 
+    uint32_t fbo;
+
+    bool firstApp = false;
+    bool usingDraw = false;
+
     // Layer serial number.  This gives layers an explicit ordering, so we
     // have a stable sort order when their layer stack and Z-order are
     // the same.
@@ -135,6 +140,7 @@ public:
 
         // finalCrop is expressed in display space coordinate.
         Rect finalCrop;
+        Rect blurCrop;
         Rect requestedFinalCrop;
 
         // If set, defers this state update until the identified Layer
@@ -215,8 +221,12 @@ public:
     bool setPosition(float x, float y, bool immediate);
     // Buffer space
     bool setCrop(const Rect& crop, bool immediate);
+
+    bool setBlurCrop(const Rect& crop, bool immediate);
     // Parent buffer space/display space
     bool setFinalCrop(const Rect& crop, bool immediate);
+
+    void setFbo();
 
     // TODO(b/38182121): Could we eliminate the various latching modes by
     // using the layer hierarchy?
@@ -259,6 +269,7 @@ public:
             bool useIdentityTransform) const;
     Rect computeBounds(const Region& activeTransparentRegion) const;
     Rect computeBounds() const;
+    Rect getBlurRect(int hwWidth, int hwHeight) const;
 
     int32_t getSequence() const { return sequence; }
 
@@ -692,6 +703,7 @@ private:
     sp<SurfaceFlingerConsumer> mSurfaceFlingerConsumer;
     sp<IGraphicBufferProducer> mProducer;
     uint32_t mTextureName;      // from GLES
+    uint32_t mBlurTextureName;      // from GLES
     bool mPremultipliedAlpha;
     String8 mName;
     String8 mTransactionName; // A cached version of "TX - " + mName for systraces
@@ -724,6 +736,7 @@ private:
 
     // main thread
     int mActiveBufferSlot;
+    int mBlurCropStep = 40;
     sp<GraphicBuffer> mActiveBuffer;
     sp<NativeHandle> mSidebandStream;
     Rect mCurrentCrop;
@@ -745,6 +758,7 @@ private:
     mutable Mesh mMesh;
     // The texture used to draw the layer in GLES composition mode
     mutable Texture mTexture;
+    mutable Texture mTextureForBlur;
 
 #ifdef USE_HWC2
     // HWC items, accessed from the main thread

@@ -446,6 +446,13 @@ private:
 
     void startBootAnim();
 
+    void renderScreenImplForBlurLocked(
+            uint32_t startx, uint32_t starty,
+            const sp<const DisplayDevice>& hw,
+            Rect sourceCrop, uint32_t reqWidth, uint32_t reqHeight,
+            int32_t minLayerZ, int32_t maxLayerZ,
+            bool yswap, bool useIdentityTransform, Transform::orientation_flags rotation);
+
     void renderScreenImplLocked(
             const sp<const DisplayDevice>& hw,
             Rect sourceCrop, uint32_t reqWidth, uint32_t reqHeight,

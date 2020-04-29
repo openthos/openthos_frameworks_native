@@ -154,6 +154,7 @@ public:
     status_t    setSize(const sp<IBinder>& id, uint32_t w, uint32_t h);
     status_t    setCrop(const sp<IBinder>& id, const Rect& crop);
     status_t    setFinalCrop(const sp<IBinder>& id, const Rect& crop);
+    status_t    setBlurCrop(const sp<IBinder>& id, const Rect& crop);
     status_t    setLayerStack(const sp<IBinder>& id, uint32_t layerStack);
     status_t    deferTransactionUntil(const sp<IBinder>& id,
             const sp<IBinder>& handle, uint64_t frameNumber);

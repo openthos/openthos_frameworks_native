@@ -162,6 +162,49 @@ size_t GLES20RenderEngine::getMaxViewportDims() const {
             mMaxViewportDims[0] : mMaxViewportDims[1];
 }
 
+void GLES20RenderEngine::setViewportAndProjectionForBlur(
+        size_t startx, size_t starty, size_t vpw, size_t vph, Rect sourceCrop, size_t hwh, bool yswap,
+        Transform::orientation_flags rotation) {
+
+    size_t l = sourceCrop.left;
+    size_t r = sourceCrop.right;
+
+    // In GL, (0, 0) is the bottom-left corner, so flip y coordinates
+    size_t t = hwh - sourceCrop.top;
+    size_t b = hwh - sourceCrop.bottom;
+
+    mat4 m;
+        m = mat4::ortho(l, r, t, b, startx + vpw, starty + vph);
+    if (yswap) {
+        m = mat4::ortho(l, r, t, b, 0, 1);
+    } else {
+        m = mat4::ortho(l, r, b, t, 0, 1);
+    }
+
+    // Apply custom rotation to the projection.
+    float rot90InRadians = 2.0f * static_cast<float>(M_PI) / 4.0f;
+    switch (rotation) {
+        case Transform::ROT_0:
+            break;
+        case Transform::ROT_90:
+            m = mat4::rotate(rot90InRadians, vec3(0,0,1)) * m;
+            break;
+        case Transform::ROT_180:
+            m = mat4::rotate(rot90InRadians * 2.0f, vec3(0,0,1)) * m;
+            break;
+        case Transform::ROT_270:
+            m = mat4::rotate(rot90InRadians * 3.0f, vec3(0,0,1)) * m;
+            break;
+        default:
+            break;
+    }
+
+    glViewport(startx, starty, vpw, vph);
+    mState.setProjectionMatrix(m);
+    mVpWidth = vpw;
+    mVpHeight = vph;
+}
+
 void GLES20RenderEngine::setViewportAndProjection(
         size_t vpw, size_t vph, Rect sourceCrop, size_t hwh, bool yswap,
         Transform::orientation_flags rotation) {
@@ -315,6 +358,27 @@ void GLES20RenderEngine::setupLayerBlackedOut() {
     mState.setTexture(texture);
 }
 
+void GLES20RenderEngine::setupLayerFirstApp(bool firstApp) {
+    mState.setFirstApp(firstApp);
+}
+
+int GLES20RenderEngine::getLayerBlurnum() {
+    return mState.blurnum;
+}
+
+void GLES20RenderEngine::setupLayerBlur(bool blur) {
+    mState.setBlur(blur);
+    if (blur) {
+        mState.blurnum++;
+    } else {
+        mState.blurnum = 0;
+    }
+}
+
+bool GLES20RenderEngine::getLayerBlur() {
+    return mState.mBlur;
+}
+
 mat4 GLES20RenderEngine::setupColorTransform(const mat4& colorTransform) {
     mat4 oldTransform = mState.getColorMatrix();
     mState.setColorMatrix(colorTransform);
@@ -403,6 +467,12 @@ void GLES20RenderEngine::drawMesh(const Mesh& mesh) {
         glDrawArrays(mesh.getPrimitive(), 0, mesh.getVertexCount());
     }
 #else
+    mState.hwWidth = hwWidth;
+    mState.hwHeight = hwHeight;
+    mState.sx = sx;
+    mState.bx = bx;
+    mState.sy = sy;
+    mState.by = by;
     ProgramCache::getInstance().useProgram(mState);
 
     glDrawArrays(mesh.getPrimitive(), 0, mesh.getVertexCount());

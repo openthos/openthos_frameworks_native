@@ -68,6 +68,10 @@ protected:
     virtual void setViewportAndProjection(size_t vpw, size_t vph,
             Rect sourceCrop, size_t hwh, bool yswap,
             Transform::orientation_flags rotation);
+    virtual void setViewportAndProjectionForBlur(size_t startx,
+            size_t starty, size_t vpw, size_t vph,
+            Rect sourceCrop, size_t hwh, bool yswap,
+            Transform::orientation_flags rotation);
 #ifdef USE_HWC2
     virtual void setupLayerBlending(bool premultipliedAlpha, bool opaque,
             float alpha) override;
@@ -101,6 +105,10 @@ protected:
 
     virtual void setupLayerTexturing(const Texture& texture);
     virtual void setupLayerBlackedOut();
+    virtual void setupLayerBlur(bool blur);
+    virtual void setupLayerFirstApp(bool firstApp);
+    virtual bool getLayerBlur();
+    virtual int  getLayerBlurnum();
     virtual void setupFillWithColor(float r, float g, float b, float a);
     virtual mat4 setupColorTransform(const mat4& colorTransform);
     virtual void disableTexturing();

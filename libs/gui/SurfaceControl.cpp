@@ -170,6 +170,11 @@ status_t SurfaceControl::setFinalCrop(const Rect& crop) {
     if (err < 0) return err;
     return mClient->setFinalCrop(mHandle, crop);
 }
+status_t SurfaceControl::setBlurCrop(const Rect& crop) {
+    status_t err = validate();
+    if (err < 0) return err;
+    return mClient->setBlurCrop(mHandle, crop);
+}
 
 status_t SurfaceControl::deferTransactionUntil(const sp<IBinder>& handle,
         uint64_t frameNumber) {

@@ -93,6 +93,7 @@ public:
     status_t    setMatrix(float dsdx, float dtdx, float dtdy, float dsdy);
     status_t    setCrop(const Rect& crop);
     status_t    setFinalCrop(const Rect& crop);
+    status_t    setBlurCrop(const Rect& crop);
 
     // If the size changes in this transaction, all geometry updates specified
     // in this transaction will not complete until a buffer of the new size

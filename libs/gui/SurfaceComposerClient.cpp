@@ -165,6 +165,8 @@ public:
             const Rect& crop);
     status_t setFinalCrop(const sp<SurfaceComposerClient>& client,
             const sp<IBinder>& id, const Rect& crop);
+    status_t setBlurCrop(const sp<SurfaceComposerClient>& client,
+            const sp<IBinder>& id, const Rect& crop);
     status_t setLayerStack(const sp<SurfaceComposerClient>& client,
             const sp<IBinder>& id, uint32_t layerStack);
     status_t deferTransactionUntil(const sp<SurfaceComposerClient>& client,
@@ -368,6 +370,7 @@ status_t Composer::setFlags(const sp<SurfaceComposerClient>& client,
         return BAD_INDEX;
     if ((mask & layer_state_t::eLayerOpaque) ||
             (mask & layer_state_t::eLayerHidden) ||
+            (mask & layer_state_t::eLayerBlur) ||
             (mask & layer_state_t::eLayerSecure)) {
         s->what |= layer_state_t::eFlagsChanged;
     }
@@ -436,6 +439,18 @@ status_t Composer::setCrop(const sp<SurfaceComposerClient>& client,
         return BAD_INDEX;
     s->what |= layer_state_t::eCropChanged;
     s->crop = crop;
+    return NO_ERROR;
+}
+
+status_t Composer::setBlurCrop(const sp<SurfaceComposerClient>& client,
+        const sp<IBinder>& id, const Rect& crop) {
+    Mutex::Autolock _l(mLock);
+    layer_state_t* s = getLayerStateLocked(client, id);
+    if (!s) {
+        return BAD_INDEX;
+    }
+    s->what |= layer_state_t::eBlurCropChanged;
+    s->blurCrop = crop;
     return NO_ERROR;
 }
 
@@ -762,6 +777,11 @@ status_t SurfaceComposerClient::setCrop(const sp<IBinder>& id, const Rect& crop)
 status_t SurfaceComposerClient::setFinalCrop(const sp<IBinder>& id,
         const Rect& crop) {
     return getComposer().setFinalCrop(this, id, crop);
+}
+
+status_t SurfaceComposerClient::setBlurCrop(const sp<IBinder>& id,
+        const Rect& crop) {
+    return getComposer().setBlurCrop(this, id, crop);
 }
 
 status_t SurfaceComposerClient::setPosition(const sp<IBinder>& id, float x, float y) {

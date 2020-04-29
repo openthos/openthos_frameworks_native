@@ -73,6 +73,14 @@ public:
             WIDE_GAMUT_OFF          =       0x00000000,
             WIDE_GAMUT_ON           =       0x00000040,
             WIDE_GAMUT_MASK         =       0x00000040,
+
+            BLUR_OFF                =       0x00000000,
+            BLUR_ON                 =       0x00000080,
+            BLUR_MASK               =       0x00000080,
+
+            FIRSTAPP_FALSE          =       0x00000000,
+            FIRSTAPP_TRUE           =       0x00010000,
+            FIRSTAPP_MASK           =       0x00010000,
         };
 
         inline Key() : mKey(0) { }
@@ -94,6 +102,12 @@ public:
         }
         inline bool isOpaque() const {
             return (mKey & OPACITY_MASK) == OPACITY_OPAQUE;
+        }
+        inline bool isBlur() const {
+            return (mKey & BLUR_MASK) == BLUR_ON;
+        }
+        inline bool isFirstApp() const {
+            return (mKey & FIRSTAPP_MASK) == FIRSTAPP_TRUE;
         }
         inline bool hasPlaneAlpha() const {
             return (mKey & PLANE_ALPHA_MASK) == PLANE_ALPHA_LT_ONE;
@@ -117,6 +131,7 @@ public:
     // useProgram lookup a suitable program in the cache or generates one
     // if none can be found.
     void useProgram(const Description& description);
+    void changeUniform(const Description& description);
 
 private:
     // Generate shaders to populate the cache

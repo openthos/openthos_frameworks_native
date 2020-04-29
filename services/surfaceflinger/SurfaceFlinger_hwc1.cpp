@@ -15,6 +15,7 @@
  */
 
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
+#define LOG_NDEBUG 0
 
 #include <dlfcn.h>
 #include <errno.h>
@@ -1971,6 +1972,8 @@ void SurfaceFlinger::computeVisibleRegions(const sp<const DisplayDevice>& displa
 
     outDirtyRegion.clear();
 
+    bool findFirst = false;
+
     mDrawingState.traverseInReverseZOrder([&](Layer* layer) {
         // start with the whole surface at its current location
         const Layer::State& s(layer->getDrawingState());
@@ -2086,6 +2089,19 @@ void SurfaceFlinger::computeVisibleRegions(const sp<const DisplayDevice>& displa
         layer->setCoveredRegion(coveredRegion);
         layer->setVisibleNonTransparentRegion(
                 visibleRegion.subtract(transparentRegion));
+        if (layer->isVisible() && (layer->getCurrentState().type == 1)) {
+            if (!findFirst) {
+                layer->firstApp = true;
+                layer->setFbo();
+                findFirst = true;
+            } else {
+                layer->firstApp = false;
+            }
+        }
+        if (layer->isVisible() && (layer->getCurrentState().type == 2019
+                                    || layer->getCurrentState().type == 2039)) {
+            layer->setFbo();
+        }
     });
 
     outOpaqueRegion = aboveOpaqueLayers;
@@ -2332,7 +2348,9 @@ bool SurfaceFlinger::doComposeSurfaces(const sp<const DisplayDevice>& hw, const 
             const Region clip(dirty.intersect(
                     tr.transform(layer->visibleRegion)));
             if (!clip.isEmpty()) {
+                layer->usingDraw = true;
                 layer->draw(hw, clip);
+                layer->usingDraw = false;
             }
         }
     }
@@ -2637,6 +2655,10 @@ uint32_t SurfaceFlinger::setClientStateLocked(
         }
         if (what & layer_state_t::eCropChanged) {
             if (layer->setCrop(s.crop, !geometryAppliesWithResize))
+                flags |= eTraversalNeeded;
+        }
+        if (what & layer_state_t::eBlurCropChanged) {
+            if (layer->setBlurCrop(s.blurCrop, !geometryAppliesWithResize))
                 flags |= eTraversalNeeded;
         }
         if (what & layer_state_t::eFinalCropChanged) {
@@ -3834,6 +3856,84 @@ status_t SurfaceFlinger::captureScreen(const sp<IBinder>& display,
     return res;
 }
 
+
+void SurfaceFlinger::renderScreenImplForBlurLocked(
+        uint32_t startx, uint32_t starty,
+        const sp<const DisplayDevice>& hw,
+        Rect sourceCrop, uint32_t reqWidth, uint32_t reqHeight,
+        int32_t minLayerZ, int32_t maxLayerZ,
+        bool yswap, bool useIdentityTransform, Transform::orientation_flags rotation)
+{
+    ATRACE_CALL();
+    RenderEngine& engine(getRenderEngine());
+
+    // get screen geometry
+    const int32_t hw_w = hw->getWidth();
+    const int32_t hw_h = hw->getHeight();
+    const bool filtering = static_cast<int32_t>(reqWidth) != hw_w ||
+                           static_cast<int32_t>(reqHeight) != hw_h;
+
+    // if a default or invalid sourceCrop is passed in, set reasonable values
+    if (sourceCrop.width() == 0 || sourceCrop.height() == 0 ||
+            !sourceCrop.isValid()) {
+        sourceCrop.setLeftTop(Point(0, 0));
+        sourceCrop.setRightBottom(Point(hw_w, hw_h));
+    }
+
+    // ensure that sourceCrop is inside screen
+    if (sourceCrop.left < 0) {
+        ALOGE("Invalid crop rect: l = %d (< 0)", sourceCrop.left);
+    }
+    if (sourceCrop.right > hw_w) {
+        ALOGE("Invalid crop rect: r = %d (> %d)", sourceCrop.right, hw_w);
+    }
+    if (sourceCrop.top < 0) {
+        ALOGE("Invalid crop rect: t = %d (< 0)", sourceCrop.top);
+    }
+    if (sourceCrop.bottom > hw_h) {
+        ALOGE("Invalid crop rect: b = %d (> %d)", sourceCrop.bottom, hw_h);
+    }
+
+    // make sure to clear all GL error flags
+    engine.checkErrors();
+
+    // set-up our viewport
+    engine.setViewportAndProjectionForBlur(startx, starty,
+        reqWidth, reqHeight, sourceCrop, hw_h, yswap, rotation);
+    engine.disableTexturing();
+
+    // redraw the screen entirely...
+    engine.clearWithColor(0, 0, 0, 0);
+
+    // We loop through the first level of layers without traversing,
+    // as we need to interpret min/max layer Z in the top level Z space.
+    for (const auto& layer : mDrawingState.layersSortedByZ) {
+        if (layer->getLayerStack() != hw->getLayerStack()) {
+            continue;
+        }
+        const Layer::State& state(layer->getDrawingState());
+        if (state.z < minLayerZ || state.z > maxLayerZ) {
+            continue;
+        }
+        Rect visibleRect = layer->visibleRegion.getBounds();
+        visibleRect.intersect(sourceCrop, &visibleRect);
+        if (!visibleRect.isValid()) {
+            continue;
+        }
+        layer->traverseInZOrder(LayerVector::StateSet::Drawing, [&](Layer* layer) {
+            if (!layer->isVisible()) {
+                return;
+            }
+            if (filtering) layer->setFiltering(true);
+            layer->draw(hw, useIdentityTransform);
+            if (filtering) layer->setFiltering(false);
+        });
+    }
+
+    // compositionComplete is needed for older driver
+    hw->compositionComplete();
+    hw->setViewportAndProjection();
+}
 
 void SurfaceFlinger::renderScreenImplLocked(
         const sp<const DisplayDevice>& hw,

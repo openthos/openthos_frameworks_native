@@ -59,6 +59,8 @@ protected:
     virtual ~RenderEngine() = 0;
 
 public:
+    int hwWidth, hwHeight;
+    float sx, sy, bx, by;
     enum FeatureFlag {
         WIDE_COLOR_SUPPORT = 1 << 0 // Platform has a wide color display
     };
@@ -98,6 +100,10 @@ public:
     virtual void checkErrors() const;
     virtual void setViewportAndProjection(size_t vpw, size_t vph,
             Rect sourceCrop, size_t hwh, bool yswap, Transform::orientation_flags rotation) = 0;
+    virtual void setViewportAndProjectionForBlur(size_t startx,
+            size_t starty, size_t vpw, size_t vph,
+            Rect sourceCrop, size_t hwh, bool yswap,
+            Transform::orientation_flags rotation) = 0;
 #ifdef USE_HWC2
     virtual void setupLayerBlending(bool premultipliedAlpha, bool opaque, float alpha) = 0;
     virtual void setupDimLayerBlending(float alpha) = 0;
@@ -111,6 +117,10 @@ public:
 #endif
     virtual void setupLayerTexturing(const Texture& texture) = 0;
     virtual void setupLayerBlackedOut() = 0;
+    virtual void setupLayerBlur(bool blur) = 0;
+    virtual void setupLayerFirstApp(bool firstApp) = 0;
+    virtual bool getLayerBlur() = 0;
+    virtual int getLayerBlurnum() = 0;
     virtual void setupFillWithColor(float r, float g, float b, float a) = 0;
 
     virtual mat4 setupColorTransform(const mat4& /* colorTransform */) {

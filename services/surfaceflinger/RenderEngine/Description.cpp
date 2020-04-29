@@ -51,6 +51,14 @@ void Description::setOpaque(bool opaque) {
     mOpaque = opaque;
 }
 
+void Description::setBlur(bool blur) {
+    mBlur = blur;
+}
+
+void Description::setFirstApp(bool firstApp) {
+    mFirstApp = firstApp;
+}
+
 void Description::setTexture(const Texture& texture) {
     mTexture = texture;
     mTextureEnabled = true;

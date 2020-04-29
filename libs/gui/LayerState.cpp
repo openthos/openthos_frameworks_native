@@ -39,6 +39,7 @@ status_t layer_state_t::write(Parcel& output) const
             output.writeInplace(sizeof(layer_state_t::matrix22_t))) = matrix;
     output.write(crop);
     output.write(finalCrop);
+    output.write(blurCrop);
     output.writeStrongBinder(barrierHandle);
     output.writeStrongBinder(reparentHandle);
     output.writeUint64(frameNumber);
@@ -70,6 +71,7 @@ status_t layer_state_t::read(const Parcel& input)
     }
     input.read(crop);
     input.read(finalCrop);
+    input.read(blurCrop);
     barrierHandle = input.readStrongBinder();
     reparentHandle = input.readStrongBinder();
     frameNumber = input.readUint64();

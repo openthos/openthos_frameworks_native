@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//#define LOG_NDEBUG 0
+#define LOG_NDEBUG 0
 #undef LOG_TAG
 #define LOG_TAG "Layer"
 #define ATRACE_TAG ATRACE_TAG_GRAPHICS
@@ -37,6 +37,8 @@
 #include <ui/DebugUtils.h>
 #include <ui/GraphicBuffer.h>
 #include <ui/PixelFormat.h>
+#include <GLES/gl.h>
+#include <GLES2/gl2.h>
 
 #include <gui/BufferItem.h>
 #include <gui/BufferQueue.h>
@@ -57,6 +59,8 @@
 #include <mutex>
 
 #define DEBUG_RESIZE    0
+#define MAX_BLUR        8
+#define STATUS_INSETS   60
 
 namespace android {
 
@@ -111,6 +115,8 @@ Layer::Layer(SurfaceFlinger* flinger, const sp<Client>& client,
 #endif
 
     mCurrentCrop.makeInvalid();
+    mFlinger->getRenderEngine().genTextures(1, &mBlurTextureName);
+    mTextureForBlur.init(Texture::TEXTURE_2D, mBlurTextureName);
     mFlinger->getRenderEngine().genTextures(1, &mTextureName);
     mTexture.init(Texture::TEXTURE_EXTERNAL, mTextureName);
 
@@ -165,6 +171,24 @@ Layer::Layer(SurfaceFlinger* flinger, const sp<Client>& client,
     CompositorTiming compositorTiming;
     flinger->getCompositorTiming(&compositorTiming);
     mFrameEventHistory.initializeCompositorTiming(compositorTiming);
+}
+
+void Layer::setFbo(){
+    Layer::State c = getCurrentState();
+    int width = c.active.w;
+    int height = c.active.h;
+    if (fbo == 0)
+        glGenFramebuffers(1, &fbo);
+    glBindTexture(GL_TEXTURE_2D, mBlurTextureName);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height,
+                0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+    GLint savedFramebuffer = 0;
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &savedFramebuffer);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+            GL_TEXTURE_2D, mBlurTextureName, 0);
+    glBindFramebuffer(GL_FRAMEBUFFER, savedFramebuffer);
 }
 
 void Layer::onFirstRef() {
@@ -1124,6 +1148,8 @@ void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
         return;
     }
 
+    Layer::State c = getCurrentState();
+
     // Bind the current buffer to the GL texture, and wait for it to be
     // ready for us to draw into.
     status_t err = mSurfaceFlingerConsumer->bindTextureImage();
@@ -1181,7 +1207,103 @@ void Layer::onDraw(const sp<const DisplayDevice>& hw, const Region& clip,
         mTexture.setFiltering(useFiltering);
         mTexture.setMatrix(textureMatrix);
 
-        engine.setupLayerTexturing(mTexture);
+        bool statusBar = (c.type == 2019 || c.type == 2039);
+        //bool sset = false;
+        //bool sset = true;
+
+        //if (sset && ((c.flags & layer_state_t::eLayerBlur) || statusBar)) {
+        if ((c.flags & layer_state_t::eLayerBlur)) {
+            if (usingDraw && (firstApp || statusBar)) {
+                Rect win(c.active.w, c.active.h);
+                Transform t = getTransform();
+                win = t.transform(win);
+                Rect bounds = win;
+
+                engine.hwWidth = c.active.w;
+                engine.hwHeight = c.active.h;
+                Rect blurbounds = getBlurRect(hw->getWidth(), hw->getHeight());
+                Rect blurRect = mCurrentState.blurCrop;//mBlurRect;
+                int cropStep = mBlurCropStep;
+                if (statusBar) {
+                    if (mCurrentState.type == 2019)
+                        blurRect = Rect(0, 0, c.active.w, c.active.h);
+                    if (mCurrentState.type == 2039) {
+                        //int step = STATUS_INSETS;
+                        int step = mCurrentState.blurCrop.right;
+                        blurRect = Rect(step, step, mCurrentState.active.w - step,
+                                                        mCurrentState.active.h - step);
+                        //cropStep = STATUS_INSETS;
+                        cropStep = 0;
+                    }
+                }
+                blurRect.left -= cropStep;
+                blurRect.top -= cropStep;
+                blurRect.right += cropStep;
+                blurRect.bottom += cropStep;
+                int width = blurbounds.getWidth();
+                int height = blurbounds.getHeight();
+                bounds = Rect(blurRect.left + bounds.left,
+                              blurRect.top + bounds.top,
+                              blurRect.right + bounds.left,
+                              blurRect.bottom + bounds.top);
+                bounds.intersect(Rect(hw->getWidth(), hw->getHeight()), &bounds);
+                if (bounds.isValid()) {
+                    Transform::orientation_flags rotation = Transform::ROT_0;
+                    GLint savedFramebuffer = 0;
+                    glGetIntegerv(GL_FRAMEBUFFER_BINDING, &savedFramebuffer);
+                    glBindFramebuffer(GL_FRAMEBUFFER, (GLuint)fbo);
+                    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                            mTextureForBlur.getTextureTarget(),
+                            mTextureForBlur.getTextureName(), 0);
+
+                    int startx = blurbounds.left;
+                    int starty = c.active.h - blurbounds.bottom;//height;
+                    mFlinger->renderScreenImplForBlurLocked(
+                                startx,
+                                starty,
+                                hw,
+                                bounds,
+                                width, height,
+                                0, getDrawingState().z - 1,
+                                false,
+                                false,
+                                rotation);
+
+                    engine.setupLayerTexturing(mTextureForBlur);
+                    engine.setViewportAndProjectionForBlur(startx, starty,
+                        width, height, bounds, hw->getHeight(), false, rotation);
+
+                    for (size_t i=0 ; i<MAX_BLUR-1 ; i++) {
+                        mFlinger->getRenderEngine().setupLayerBlur(true);
+                        drawWithOpenGL(hw, useIdentityTransform);
+                    }
+
+                    glBindFramebuffer(GL_FRAMEBUFFER, savedFramebuffer);
+
+                    mTextureForBlur.setDimensions(width, height);
+                    hw->setViewportAndProjection();
+                    mFlinger->getRenderEngine().setupLayerBlur(true);
+                    drawWithOpenGL(hw, useIdentityTransform);
+                    engine.setupLayerTexturing(mTexture);
+                } else {
+                    engine.setupLayerTexturing(mTexture);
+                }
+                engine.setupLayerFirstApp(true);
+            } else {
+                mTextureForBlur.setDimensions(mActiveBuffer->getWidth(),
+                                                    mActiveBuffer->getHeight());
+                for (size_t i=0 ; i<MAX_BLUR ; i++) {
+                    mFlinger->getRenderEngine().setupLayerBlur(true);
+                }
+                engine.setupLayerTexturing(mTextureForBlur);
+                drawWithOpenGL(hw, useIdentityTransform);
+                mFlinger->getRenderEngine().setupLayerBlur(false);
+                engine.setupLayerTexturing(mTexture);
+            }
+        } else {
+            engine.setupLayerFirstApp(false);
+            engine.setupLayerTexturing(mTexture);
+        }
     } else {
         engine.setupLayerBlackedOut();
     }
@@ -1238,11 +1360,23 @@ void Layer::drawWithOpenGL(const sp<const DisplayDevice>& hw,
             win.clear();
         }
     }
+    RenderEngine& engine(mFlinger->getRenderEngine());
+    bool blur = engine.getLayerBlur();
+    if (blur) {
+        win = getBlurRect(hw->getWidth(), hw->getHeight());
+        if (engine.getLayerBlurnum() == MAX_BLUR) {
+            engine.setupLayerBlur(false);
+        }
+    }
 
     float left   = float(win.left)   / float(s.active.w);
     float top    = float(win.top)    / float(s.active.h);
     float right  = float(win.right)  / float(s.active.w);
     float bottom = float(win.bottom) / float(s.active.h);
+    engine.sx = left;
+    engine.bx = right;
+    engine.sy = 1.0f - bottom;
+    engine.by = 1.0f - top;
 
     // TODO: we probably want to generate the texture coords with the mesh
     // here we assume that we only have 4 vertices
@@ -1252,7 +1386,6 @@ void Layer::drawWithOpenGL(const sp<const DisplayDevice>& hw,
     texCoords[2] = vec2(right, 1.0f - bottom);
     texCoords[3] = vec2(right, 1.0f - top);
 
-    RenderEngine& engine(mFlinger->getRenderEngine());
     engine.setupLayerBlending(mPremultipliedAlpha, isOpaque(s), getAlpha());
 #ifdef USE_HWC2
     engine.setSourceDataSpace(mCurrentState.dataSpace);
@@ -1434,6 +1567,37 @@ static void boundPoint(vec2* point, const Rect& crop) {
     }
 }
 
+Rect Layer::getBlurRect(int hwWidth, int hwHeight) const {
+    Rect blurRect = mCurrentState.blurCrop;//mBlurRect;
+    bool statusBar = (mCurrentState.type == 2019 || mCurrentState.type == 2039);
+    int cropStep = mBlurCropStep;
+    if (statusBar) {
+        if (mCurrentState.type == 2019)
+            blurRect = Rect(0, 0, mCurrentState.active.w, mCurrentState.active.h);
+        if (mCurrentState.type == 2039) {
+            blurRect = Rect(STATUS_INSETS, STATUS_INSETS,
+                                mCurrentState.active.w - STATUS_INSETS,
+                                mCurrentState.active.h - STATUS_INSETS);
+            //cropStep = STATUS_INSETS;
+            cropStep = 0;
+        }
+    }
+    RenderEngine& engine(mFlinger->getRenderEngine());
+    if (engine.getLayerBlurnum() != MAX_BLUR) {
+        blurRect.left -= cropStep;
+        blurRect.top -= cropStep;
+        blurRect.right += cropStep;
+        blurRect.bottom += cropStep;
+    }
+    Rect win(blurRect);
+    Transform t = getTransform();
+    win = t.transform(win);
+    Rect r = win;
+    r.intersect(Rect(0, 0, hwWidth, hwHeight), &r);
+    r = t.inverse().transform(r);
+    return r;
+}
+
 void Layer::computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
         bool useIdentityTransform) const
 {
@@ -1441,6 +1605,11 @@ void Layer::computeGeometry(const sp<const DisplayDevice>& hw, Mesh& mesh,
     const Transform hwTransform(hw->getTransform());
     const uint32_t hw_h = hw->getHeight();
     Rect win = computeBounds();
+    RenderEngine& engine(mFlinger->getRenderEngine());
+    bool blur = engine.getLayerBlur();
+    if (blur) {
+        win = getBlurRect(hw->getWidth(), hw->getHeight());
+    }
 
     vec2 lt = vec2(win.left, win.top);
     vec2 lb = vec2(win.left, win.bottom);
@@ -1923,6 +2092,18 @@ bool Layer::setCrop(const Rect& crop, bool immediate) {
     if (immediate && !mFreezeGeometryUpdates) {
         mCurrentState.crop = crop;
     }
+    mFreezeGeometryUpdates = mFreezeGeometryUpdates || !immediate;
+
+    mCurrentState.modified = true;
+    setTransactionFlags(eTransactionNeeded);
+    return true;
+}
+
+bool Layer::setBlurCrop(const Rect& crop, bool immediate) {
+    if (mCurrentState.blurCrop == crop)
+        return false;
+    mCurrentState.sequence++;
+    mCurrentState.blurCrop = crop;
     mFreezeGeometryUpdates = mFreezeGeometryUpdates || !immediate;
 
     mCurrentState.modified = true;
@@ -2810,10 +2991,10 @@ void Layer::commitChildList() {
 
 }; // namespace android
 
-#if defined(__gl_h_)
-#error "don't include gl/gl.h in this file"
-#endif
+//#if defined(__gl_h_)
+//#error "don't include gl/gl.h in this file"
+//#endif
 
-#if defined(__gl2_h_)
-#error "don't include gl2/gl2.h in this file"
-#endif
+//#if defined(__gl2_h_)
+//#error "don't include gl2/gl2.h in this file"
+//#endif

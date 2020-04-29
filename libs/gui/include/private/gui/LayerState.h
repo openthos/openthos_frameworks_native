@@ -41,6 +41,7 @@ struct layer_state_t {
         eLayerHidden        = 0x01,     // SURFACE_HIDDEN in SurfaceControl.java
         eLayerOpaque        = 0x02,     // SURFACE_OPAQUE
         eLayerSecure        = 0x80,     // SECURE
+        eLayerBlur          = 0x04,   // BLUR
     };
 
     enum {
@@ -59,7 +60,8 @@ struct layer_state_t {
         eGeometryAppliesWithResize  = 0x00001000,
         eReparentChildren           = 0x00002000,
         eDetachChildren             = 0x00004000,
-        eRelativeLayerChanged       = 0x00008000
+        eRelativeLayerChanged       = 0x00008000,
+        eBlurCropChanged            = 0x00010000
     };
 
     layer_state_t()
@@ -67,8 +69,8 @@ struct layer_state_t {
             x(0), y(0), z(0), w(0), h(0), layerStack(0),
             alpha(0), flags(0), mask(0),
             reserved(0), crop(Rect::INVALID_RECT),
-            finalCrop(Rect::INVALID_RECT), frameNumber(0),
-            overrideScalingMode(-1)
+            finalCrop(Rect::INVALID_RECT), blurCrop(Rect::INVALID_RECT),
+            frameNumber(0),overrideScalingMode(-1)
     {
         matrix.dsdx = matrix.dtdy = 1.0f;
         matrix.dsdy = matrix.dtdx = 0.0f;
@@ -98,6 +100,7 @@ struct layer_state_t {
             matrix22_t      matrix;
             Rect            crop;
             Rect            finalCrop;
+            Rect            blurCrop;
             sp<IBinder>     barrierHandle;
             sp<IBinder>     reparentHandle;
             uint64_t        frameNumber;

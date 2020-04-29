@@ -50,6 +50,7 @@ class Description {
     GLclampf mColor[4];
     // projection matrix
     mat4 mProjectionMatrix;
+    mat4 mDefaultProjectionMatrix;
 
     bool mColorMatrixEnabled;
     mat4 mColorMatrix;
@@ -57,12 +58,21 @@ class Description {
     bool mIsWideGamut;
 
 public:
+    bool mBlur = false;
+    bool mFirstApp = false;
+    int blurnum = 0;
+    int hwWidth = 0;
+    int hwHeight = 0;
+    float sx, bx, sy, by;
+
     Description();
     ~Description();
 
     void setPlaneAlpha(GLclampf planeAlpha);
     void setPremultipliedAlpha(bool premultipliedAlpha);
     void setOpaque(bool opaque);
+    void setFirstApp(bool firstApp);
+    void setBlur(bool blur);
     void setTexture(const Texture& texture);
     void disableTexture();
     void setColor(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
